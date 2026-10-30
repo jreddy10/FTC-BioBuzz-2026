@@ -4,6 +4,7 @@ import com.qualcomm.hardware.gobilda.GoBildaPinpointDriver;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.Gamepad;
 
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
@@ -25,8 +26,6 @@ public class BioBuzzTeleOp extends LinearOpMode {
     private double currentBL = 0;
     private double currentBR = 0;
 
-    double y = gamepad2.left_stick_x;
-    double y_inverted = -y;
     private static final double POWER_STEP = 0.08;
     private static final double DEADZONE = 0.08;
 
@@ -64,6 +63,9 @@ public class BioBuzzTeleOp extends LinearOpMode {
             motor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         }
 
+                turret.setPower(0);
+                turret.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+
         pinpoint = hardwareMap.get(
                 GoBildaPinpointDriver.class, "pinpoint"
         );
@@ -88,14 +90,6 @@ public class BioBuzzTeleOp extends LinearOpMode {
 
 
 
-        if (y>0) {
-            turret.setPower(y);
-        }
-
-        if (y_inverted<0) {
-            turret.setPower(y_inverted);
-        }
-
         try {
             while (opModeInInit()) {
                 pinpoint.update();
@@ -118,6 +112,18 @@ public class BioBuzzTeleOp extends LinearOpMode {
             }
 
             while (opModeIsActive()) {
+                                // Gamepad objects can be unavailable during initialization or
+                                // reconnects. Treat missing input as neutral instead of crashing.
+                                Gamepad driveGamepad = gamepad1;
+                                Gamepad operatorGamepad = gamepad2;
+
+                                double turretPower = operatorGamepad == null
+                                                ? 0.0 : operatorGamepad.left_stick_x;
+                                if (Math.abs(turretPower) < DEADZONE) {
+                                        turretPower = 0;
+                                }
+                                turret.setPower(turretPower);
+
                 pinpoint.update();
 
                 // Do not drive with an unready heading sensor.
@@ -149,9 +155,12 @@ public class BioBuzzTeleOp extends LinearOpMode {
                     continue;
                 }
 
-                double y = -gamepad1.left_stick_y;
-                double x = gamepad1.left_stick_x;
-                double yaw = gamepad1.right_stick_x;
+                double y = driveGamepad == null
+                        ? 0.0 : -driveGamepad.left_stick_y;
+                double x = driveGamepad == null
+                        ? 0.0 : driveGamepad.left_stick_x;
+                double yaw = driveGamepad == null
+                        ? 0.0 : driveGamepad.right_stick_x;
 
                 if (Math.abs(y) < DEADZONE) y = 0;
                 if (Math.abs(x) < DEADZONE) x = 0;
@@ -207,6 +216,7 @@ public class BioBuzzTeleOp extends LinearOpMode {
             }
         } finally {
             stopDrive();
+                        turret.setPower(0);
         }
     }
 
