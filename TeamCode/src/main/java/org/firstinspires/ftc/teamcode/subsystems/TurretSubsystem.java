@@ -9,7 +9,7 @@ public class TurretSubsystem {
 
     public TurretSubsystem(HardwareMap hardwareMap) {
         // This must match the motor's name in the Robot Controller config.
-        turretMotor = hardwareMap.get(DcMotor.class, "turret_motor");
+        turretMotor = hardwareMap.get(DcMotor.class, "turret");
         turretMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
     }
 
