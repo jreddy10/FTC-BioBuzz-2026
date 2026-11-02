@@ -4,7 +4,9 @@ import com.qualcomm.hardware.gobilda.GoBildaPinpointDriver;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.Gamepad;
+import com.qualcomm.robotcore.hardware.Servo;
 
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
@@ -17,7 +19,17 @@ public class BioBuzzTeleOp extends LinearOpMode {
     private DcMotor frontRightDrive;
     private DcMotor backRightDrive;
 
+    private DcMotor intake_motor;
+
+    private DcMotor flywheel;
+
     private DcMotor turret;
+
+    private DcMotor viper;
+
+        private Servo dual300Servo;
+
+    private boolean viper_up_down = false;
 
     private GoBildaPinpointDriver pinpoint;
 
@@ -28,6 +40,11 @@ public class BioBuzzTeleOp extends LinearOpMode {
 
     private static final double POWER_STEP = 0.08;
     private static final double DEADZONE = 0.08;
+        private static final double SERVO_BACKWARD_POSITION = 0.15;
+        private static final double SERVO_FORWARD_POSITION = 0.85;
+        private static final double SERVO_CENTER_POSITION = 0.50;
+        private static final int SERVO_SWEEP_COUNT = 1;
+        private static final long SERVO_MOVE_TIME_MS = 1200;
 
     @Override
     public void runOpMode() {
@@ -42,6 +59,15 @@ public class BioBuzzTeleOp extends LinearOpMode {
                 hardwareMap.get(DcMotor.class, "b_r_dr");
         turret =
                 hardwareMap.get(DcMotor.class, "turret");
+        intake_motor =
+                hardwareMap.get(DcMotor.class, "intake_motor");
+        flywheel =
+                hardwareMap.get(DcMotor.class, "flywheel");
+        viper =
+                hardwareMap.get(DcMotor.class, "viper");
+        dual300Servo =
+                hardwareMap.get(Servo.class, "launch_servo");
+        dual300Servo.setPosition(SERVO_CENTER_POSITION);
 
         frontLeftDrive.setDirection(DcMotor.Direction.REVERSE);
         backLeftDrive.setDirection(DcMotor.Direction.REVERSE);
@@ -89,7 +115,6 @@ public class BioBuzzTeleOp extends LinearOpMode {
         pinpoint.resetPosAndIMU();
 
 
-
         try {
             while (opModeInInit()) {
                 pinpoint.update();
@@ -111,6 +136,13 @@ public class BioBuzzTeleOp extends LinearOpMode {
                 return;
             }
 
+                        // Gamepad 1 A starts one sweep; B cancels and centers the servo.
+                        int servoState = 0; // 0 = idle, 1 = moving forward, 2 = moving backward
+                        int servoCycle = 0;
+                        long servoMoveStartMillis = 0;
+                        boolean previousServoStart = false;
+                        boolean previousServoCancel = false;
+
             while (opModeIsActive()) {
                                 // Gamepad objects can be unavailable during initialization or
                                 // reconnects. Treat missing input as neutral instead of crashing.
@@ -118,11 +150,58 @@ public class BioBuzzTeleOp extends LinearOpMode {
                                 Gamepad operatorGamepad = gamepad2;
 
                                 double turretPower = operatorGamepad == null
-                                                ? 0.0 : operatorGamepad.left_stick_x;
+                                                ? 0.0 : (operatorGamepad.left_stick_x)/4;
                                 if (Math.abs(turretPower) < DEADZONE) {
                                         turretPower = 0;
                                 }
                                 turret.setPower(turretPower);
+
+                                boolean servoStart = driveGamepad != null && driveGamepad.a;
+                                boolean servoCancel = driveGamepad != null && driveGamepad.b;
+
+                                if (servoStart && !previousServoStart && servoState == 0) {
+                                        servoCycle = 1;
+                                        servoState = 1;
+                                        servoMoveStartMillis = System.currentTimeMillis();
+                                        dual300Servo.setPosition(SERVO_FORWARD_POSITION);
+                                }
+
+                                if (servoCancel && !previousServoCancel && servoState != 0) {
+                                        servoState = 0;
+                                        servoCycle = 0;
+                                        dual300Servo.setPosition(SERVO_CENTER_POSITION);
+                                }
+
+                                previousServoStart = servoStart;
+                                previousServoCancel = servoCancel;
+
+                                if (servoState != 0
+                                                && System.currentTimeMillis() - servoMoveStartMillis
+                                                >= SERVO_MOVE_TIME_MS) {
+                                        if (servoState == 1) {
+                                                servoState = 2;
+                                                servoMoveStartMillis = System.currentTimeMillis();
+                                                dual300Servo.setPosition(SERVO_BACKWARD_POSITION);
+                                        } else if (servoCycle < SERVO_SWEEP_COUNT) {
+                                                servoCycle++;
+                                                servoState = 1;
+                                                servoMoveStartMillis = System.currentTimeMillis();
+                                                dual300Servo.setPosition(SERVO_FORWARD_POSITION);
+                                        } else {
+                                                servoState = 0;
+                                                servoCycle = 0;
+                                                dual300Servo.setPosition(SERVO_CENTER_POSITION);
+                                        }
+                                }
+
+                                telemetry.addData(
+                                                "Dual 300 servo test",
+                                                servoState == 0 ? "Idle" : "Sweep %d/%d %s",
+                                                servoCycle,
+                                                SERVO_SWEEP_COUNT,
+                                                servoState == 1 ? "forward" : "backward"
+                                );
+                                telemetry.addLine("Gamepad 1 A: start servo sweeps | B: cancel");
 
                 pinpoint.update();
 
@@ -140,6 +219,24 @@ public class BioBuzzTeleOp extends LinearOpMode {
                     sleep(20);
                     continue;
                 }
+                if (gamepad2.a) {
+                    intake_motor.setPower(1.0);
+                }
+
+                if (gamepad2.b) {
+                    flywheel.setPower(1.0);
+                }
+
+                if (gamepad2.y && !viper_up_down) {
+                    viper.setDirection(DcMotor.Direction.FORWARD);
+                    viper.setPower(0.1);
+                }
+                
+                if (gamepad2.y && viper_up_down) {
+                    viper.setDirection(DcMotor.Direction.REVERSE);
+                    viper.setPower(0.1);
+                }
+
 
                 double heading = pinpoint.getPosition()
                         .getHeading(AngleUnit.RADIANS);
@@ -217,6 +314,7 @@ public class BioBuzzTeleOp extends LinearOpMode {
         } finally {
             stopDrive();
                         turret.setPower(0);
+                        dual300Servo.setPosition(SERVO_CENTER_POSITION);
         }
     }
 
