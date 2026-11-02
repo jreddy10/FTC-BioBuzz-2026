@@ -249,7 +249,7 @@ public class BioBuzzAprilTagTeleOp extends LinearOpMode {
                 telemetry.addData("Launch readiness", "NOT IMPLEMENTED (alignment only)");
                 telemetry.addData("Camera", "Limelight 3A (pipeline %d)", APRILTAG_PIPELINE);
                 telemetry.addData("Result age (ms)", result == null ? "No data"
-                    : String.format("%.0f", result.getStaleness()));
+                    : String.format("%d", result.getStaleness()));
                 if (usable) {
                         telemetry.addData("Tag ID", target.getFiducialId());
                     telemetry.addData("Horizontal aim error", "%.1f deg", horizontalOffset);
