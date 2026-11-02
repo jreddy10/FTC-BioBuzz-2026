@@ -2,6 +2,7 @@ package org.firstinspires.ftc.teamcode.opmodes;
 
 import com.qualcomm.hardware.limelightvision.LLResult;
 import com.qualcomm.hardware.limelightvision.LLResultTypes;
+import com.qualcomm.hardware.limelightvision.LLStatus;
 import com.qualcomm.hardware.limelightvision.Limelight3A;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
@@ -31,7 +32,15 @@ public class LimelightAprilTagTestTeleOp extends LinearOpMode {
             waitForStart();
             while (opModeIsActive()) {
                 LLResult result = limelight.getLatestResult();
-                telemetry.addData("Pipeline", APRILTAG_PIPELINE);
+                LLStatus status = limelight.getStatus();
+                if (status != null) {
+                    telemetry.addData("Limelight", "%s | %.1f C | %d FPS",
+                            status.getName(), status.getTemp(), (int) status.getFps());
+                    telemetry.addData("Active pipeline", "%d: %s",
+                            status.getPipelineIndex(), status.getPipelineType());
+                } else {
+                    telemetry.addLine("Waiting for Limelight status...");
+                }
 
                 if (result == null) {
                     telemetry.addLine("Waiting for Limelight result...");
@@ -47,7 +56,8 @@ public class LimelightAprilTagTestTeleOp extends LinearOpMode {
                     if (result.isValid() && count > 0) {
                         for (LLResultTypes.FiducialResult fiducial : fiducials) {
                             telemetry.addData(
-                                    "Tag " + fiducial.getFiducialId() + " tx/ty",
+                                    "Tag " + fiducial.getFiducialId()
+                                        + " (" + fiducial.getFamily() + ") tx/ty",
                                     "%.1f / %.1f deg",
                                     fiducial.getTargetXDegrees(),
                                     fiducial.getTargetYDegrees()
