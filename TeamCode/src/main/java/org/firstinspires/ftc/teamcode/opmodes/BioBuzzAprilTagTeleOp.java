@@ -151,6 +151,7 @@ public class BioBuzzAprilTagTeleOp extends LinearOpMode {
 
         Limelight3A limelight = null;
         try {
+            initializeAdditionalHardware();
             limelight = hardwareMap.get(Limelight3A.class, "limelight");
             limelight.setPollRateHz(50);
             limelight.pipelineSwitch(APRILTAG_PIPELINE);
@@ -251,6 +252,8 @@ public class BioBuzzAprilTagTeleOp extends LinearOpMode {
                     mode = "SOFT LIMIT";
                 }
 
+                updateAdditionalHardware(controls, "ALIGNED".equals(mode));
+
                 telemetry.addData("Mode", mode);
                 telemetry.addData("Selected CELL", selectedCell == 1 ? "Opposite audience: 30-33"
                     : selectedCell == 2 ? "Audience: 34-37" : "Both RED CELLS: 30-37");
@@ -270,11 +273,24 @@ public class BioBuzzAprilTagTeleOp extends LinearOpMode {
                 sleep(20);
             }
         } finally {
-            turret.setPower(0);
-            if (limelight != null) {
-                limelight.stop();
+            try {
+                stopAdditionalHardware();
+            } finally {
+                turret.setPower(0);
+                if (limelight != null) {
+                    limelight.stop();
+                }
             }
         }
+    }
+
+    protected void initializeAdditionalHardware() {
+    }
+
+    protected void updateAdditionalHardware(Gamepad controls, boolean aligned) {
+    }
+
+    protected void stopAdditionalHardware() {
     }
 
     private static double neutral(double value) {

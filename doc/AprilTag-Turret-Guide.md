@@ -14,6 +14,34 @@ It **does not drive the chassis, control the flywheel, or feed/fire balls**. Onl
 
 **ALIGNED means horizontal tag alignment only. It does not mean the Hive cell is upward-facing or that the launcher is ready.** Field performance, shooting accuracy, and automatic Hive-state recognition have not been validated by this implementation.
 
+### Optional AprilTag + Launcher TeleOp
+
+Select **BioBuzz: AprilTag + Launcher** to use
+[`BioBuzzAprilTagLauncherTeleOp`](../TeamCode/src/main/java/org/firstinspires/ftc/teamcode/opmodes/BioBuzzAprilTagLauncherTeleOp.java).
+It reuses the turret-only mode's targeting, controls, limits, and telemetry, but
+also requires an encoder-equipped motor named `launcher_motor`, configured with
+the correct motor/encoder type. The original **BioBuzz: AprilTag Turret** remains
+turret-only and does not require that motor. Neither mode drives the chassis.
+
+- Hold gamepad 1 **left bumper** to acquire and aim at a tag.
+- Once **ALIGNED**, also hold **right bumper** to command **6000 RPM** using
+  encoder velocity control. Right bumper alone cannot spin the flywheel.
+- Release either bumper or hold **B** to command zero flywheel power. Loss of
+  alignment, missing/invalid/stale tags, or unavailable gamepad input also stops
+  the flywheel command. If both bumpers remain held, spinning resumes when
+  alignment returns and B is released.
+- Driver Station **STOP** and OpMode exit also command zero flywheel power.
+  The motor uses FLOAT, so the flywheel coasts rather than stopping instantly.
+- Telemetry shows launcher state, commanded RPM, and measured RPM. There is no
+  feeder control, automatic firing, RPM-ready interlock, or shot-readiness check.
+
+Horizontal alignment is only a flywheel-control interlock, **not permission to
+feed a ball**. Verify the upward-facing cell, opening offset, distance/elevation,
+motor direction, encoder configuration, and suitable RPM independently. Keep the
+feeder disabled and people clear for initial testing. With the robot secured,
+verify right bumper alone is blocked, both bumpers spin only when aligned, and
+release/B/tag loss stop the command before testing with balls.
+
 ## 2. Hardware and configuration
 
 | Component | Configuration / requirement |
