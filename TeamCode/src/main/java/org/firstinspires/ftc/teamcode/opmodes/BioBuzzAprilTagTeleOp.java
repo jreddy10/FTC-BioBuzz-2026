@@ -23,11 +23,11 @@
  *    and loose wires away from moving gears. Leave clearance for turret cables.
  *
  * GAMEPAD 1 CONTROLS
- * - Left stick left/right: manual turret rotation (maximum 20% motor power).
+ * - Left stick left/right: manual turret rotation (maximum 20%, within +/-60 deg).
  * - With left bumper RELEASED: D-pad left selects the opposite-audience CELL
  *   (30-33); D-pad right selects the audience CELL (34-37); D-pad down selects
  *   both red CELLS (default). Selection does not determine which CELL faces up.
- * - HOLD left bumper: aim at a visible tag in the selected group (maximum 20%).
+ * - HOLD left bumper: sweep within +/-50 degrees, then aim at a visible tag.
  * - Release left bumper: manual control resumes; center the stick to stop.
  * - HOLD B: stop override in either mode. Releasing B resumes normal controls.
  * - Driver Station STOP: end the OpMode and stop the turret and Limelight polling.
@@ -43,13 +43,13 @@
  *    motor direction, camera orientation, and mounting before another test.
  * 5. Keep holding the bumper: power decreases toward the tag center and becomes
  *    zero within +/-2 degrees (ALIGNED). It corrects again if the error increases.
- * 6. Move the tag out of view: auto power becomes zero on a missing/invalid
- *    detection or when result age exceeds 250 ms. There is no blind searching.
+ * 6. Move the tag out of view: bounded scanning resumes if detection is missing,
+ *    invalid, or older than 250 ms.
  *
  * TARGET SELECTION AND LIMITATIONS
  * - Both red CELLS are eligible (30-33 and 34-37); blue tags are ignored.
- * - DESIRED_TAG_ID = -1 locks the first eligible tag per bumper hold.
- *   Release and hold again to select anew, or set a specific ID from 30-37.
+ * - DESIRED_TAG_ID = -1 acquires the first eligible visible tag.
+ *   If it disappears, scanning resumes and another eligible tag can be acquired.
  * - All fresh visible red tags show tx/ty, camera-space XYZ in inches, and
  *   pitch/roll/yaw in degrees. These are relative to the CAMERA, not the floor.
  * - Hive facing state is UNKNOWN: no unverified tilt threshold is used, and
@@ -66,10 +66,10 @@
  *    After a TIP, release the bumper and select the other CELL before re-aiming.
  * 4. Launch readiness needs verified cell orientation, a tag-to-opening offset,
  *    distance/elevation calibration and flywheel speed checks; none are assumed.
- * - The 2.75:1 ratio needs no conversion here: control uses camera error, not
- *   encoder angle. TURN_GAIN and power caps still require tuning on your robot.
- * - NO automatic travel limits, homing, or cable-twist protection are configured.
- *   Never hold controls into a hard stop; BRAKE is not precise position holding.
+ * - Center the turret before INIT. Encoder-based software limits are +/-60
+ *   degrees, based on the 5202 motor and 2.75:1 turret reduction.
+ * - Software limits are not physical stops or a substitute for checking wiring.
+ *   Encoder counts cannot detect slipping gears or an incorrectly centered start.
  * - A nonzero power reading is a command, not proof that the motor is moving.
  *
  * UPWARD CAMERA MOUNT - MEASURE BEFORE FIELD TUNING
@@ -118,9 +118,9 @@ import com.qualcomm.hardware.limelightvision.LLResultTypes;
 import com.qualcomm.hardware.limelightvision.Limelight3A;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
-import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.Gamepad;
 import com.qualcomm.robotcore.util.Range;
+import org.firstinspires.ftc.teamcode.subsystems.TurretSubsystem;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.Pose3D;
@@ -130,12 +130,12 @@ import org.firstinspires.ftc.robotcore.external.navigation.Position;
 @TeleOp(name = "BioBuzz: AprilTag Turret", group = "BioBuzz")
 public class BioBuzzAprilTagTeleOp extends LinearOpMode {
     // Requires the camera to rotate WITH the turret and point along its aim axis.
-    // No travel limits are assumed: watch cables and mechanical stops during tests.
+    // Software limits depend on a centered startup and the verified encoder gearing.
     // Configure pipeline 0 as an AprilTag pipeline in the Limelight web interface.
     private static final int APRILTAG_PIPELINE = 0;
     private static final int RED_CELL_MIN_ID = 30;
     private static final int RED_CELL_MAX_ID = 37;
-    private static final int DESIRED_TAG_ID = -1; // -1: lock first eligible red tag per hold
+    private static final int DESIRED_TAG_ID = -1; // -1: acquire the first eligible visible red tag
     private static final double TURN_GAIN = 0.01;
     private static final double AIM_TOLERANCE_DEGREES = 2.0;
     // Change to -1.0 if positive motor power turns the turret LEFT instead of RIGHT.
@@ -147,10 +147,7 @@ public class BioBuzzAprilTagTeleOp extends LinearOpMode {
 
     @Override
     public void runOpMode() throws InterruptedException {
-        DcMotor turret = hardwareMap.get(DcMotor.class, "turret");
-        turret.setPower(0);
-        turret.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        turret.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        TurretSubsystem turret = new TurretSubsystem(hardwareMap);
 
         Limelight3A limelight = null;
         try {
@@ -159,19 +156,21 @@ public class BioBuzzAprilTagTeleOp extends LinearOpMode {
             limelight.pipelineSwitch(APRILTAG_PIPELINE);
             limelight.start();
 
-            telemetry.addLine("Gamepad 1 left stick X: manually rotate turret");
-            telemetry.addLine("Hold gamepad 1 left bumper: aim at selected RED CELL");
+            telemetry.addLine("Center turret before INIT; encoder zero is set at INIT");
+            telemetry.addLine("Gamepad 1 left stick X: manual rotation within +/-60 deg");
+            telemetry.addLine("Hold left bumper: scan within +/-50 deg, then aim at RED CELL");
             telemetry.addLine("Bumper released: D-pad left 30-33 | right 34-37 | down both");
             telemetry.addLine("Hive facing state UNKNOWN - no launch-ready detection");
             telemetry.addLine("Limelight 3A: AprilTag pipeline 0, family 36h11");
             telemetry.addLine("B: stop override | Release bumper: manual control");
-            telemetry.addLine("Camera MUST rotate with turret. Watch cable/travel limits.");
+            telemetry.addLine("Encoder software limit +/-60 deg; verify cable clearance.");
             telemetry.update();
             waitForStart();
 
             Integer lockedId = null;
             boolean previousAssist = false;
             int selectedCell = 0; // 0 = both, 1 = opposite audience, 2 = audience
+            double scanDirection = 1.0;
 
             while (opModeIsActive()) {
                 Gamepad controls = gamepad1;
@@ -225,14 +224,21 @@ public class BioBuzzAprilTagTeleOp extends LinearOpMode {
                 double turretPower = 0;
                 String mode = "STOPPED";
                 if (!stop && assist) {
-                    mode = usable ? "AUTO AIM" : "NO FRESH TARGET - STOPPED";
                     if (usable) {
+                        mode = "AUTO AIM";
                         // Positive Limelight tx means the tag is to the right.
                         turretPower = TURRET_DIRECTION_SIGN * correction(horizontalOffset,
                                 TURN_GAIN, AIM_TOLERANCE_DEGREES);
                         if (Math.abs(horizontalOffset) <= AIM_TOLERANCE_DEGREES) {
                             mode = "ALIGNED";
                         }
+                    } else {
+                        lockedId = null;
+                        if (turret.isAtScanLimit(scanDirection)) {
+                            scanDirection *= -1.0;
+                        }
+                        mode = scanDirection > 0 ? "SCANNING RIGHT" : "SCANNING LEFT";
+                        turretPower = scanDirection * 0.10;
                     }
                 } else if (!stop) {
                     mode = "MANUAL TURRET";
@@ -240,7 +246,10 @@ public class BioBuzzAprilTagTeleOp extends LinearOpMode {
                             * neutral(controls.left_stick_x) * MANUAL_POWER;
                 }
 
-                turret.setPower(turretPower);
+                double appliedPower = turret.setPower(turretPower);
+                if (Math.abs(appliedPower - turretPower) > 0.001 && !stop) {
+                    mode = "SOFT LIMIT";
+                }
 
                 telemetry.addData("Mode", mode);
                 telemetry.addData("Selected CELL", selectedCell == 1 ? "Opposite audience: 30-33"
@@ -254,7 +263,9 @@ public class BioBuzzAprilTagTeleOp extends LinearOpMode {
                         telemetry.addData("Tag ID", target.getFiducialId());
                     telemetry.addData("Horizontal aim error", "%.1f deg", horizontalOffset);
                 }
-                telemetry.addData("Turret power", "%.2f", turretPower);
+                telemetry.addData("Turret angle (deg)", "%.1f", turret.getAngleDegrees());
+                telemetry.addData("Turret encoder", turret.getEncoderPosition());
+                telemetry.addData("Turret power", "%.2f", appliedPower);
                 telemetry.update();
                 sleep(20);
             }

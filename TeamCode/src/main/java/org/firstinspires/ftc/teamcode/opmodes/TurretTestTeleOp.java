@@ -14,9 +14,9 @@ public class TurretTestTeleOp extends LinearOpMode {
     public void runOpMode() throws InterruptedException {
         TurretSubsystem turret = new TurretSubsystem(hardwareMap);
 
-        telemetry.addData("Status", "Initialized - verify turret_motor configuration");
+        telemetry.addData("Status", "Center turret before INIT; encoder zero is reset at INIT");
         telemetry.addData("Control", "Gamepad 1 left stick left/right rotates turret");
-        telemetry.addData("Safety", "Reduced power; watch for cable/mechanical limits");
+        telemetry.addData("Safety", "Encoder soft limit +/-60 deg; verify cable clearance");
         telemetry.update();
 
         try {
@@ -28,9 +28,10 @@ public class TurretTestTeleOp extends LinearOpMode {
                     rotationInput = 0;
                 }
 
-                turret.setPower(rotationInput * MAX_TURRET_POWER);
+                double appliedPower = turret.setPower(rotationInput * MAX_TURRET_POWER);
 
-                telemetry.addData("Turret power", "%.2f", turret.getPower());
+                telemetry.addData("Turret angle (deg)", "%.1f", turret.getAngleDegrees());
+                telemetry.addData("Turret power", "%.2f", appliedPower);
                 telemetry.update();
             }
         } finally {
