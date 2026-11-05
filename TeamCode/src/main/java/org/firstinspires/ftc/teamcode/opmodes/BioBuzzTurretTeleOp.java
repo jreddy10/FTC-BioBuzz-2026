@@ -8,6 +8,7 @@ import com.qualcomm.robotcore.hardware.Gamepad;
 
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
+import org.firstinspires.ftc.teamcode.subsystems.TurretSubsystem;
 
 /** Drive OpMode with gamepad 2 left-stick control for turret testing. */
 @TeleOp(name = "Drive + Turret Test")
@@ -16,7 +17,7 @@ public class BioBuzzTurretTeleOp extends LinearOpMode {
     private DcMotor backLeftDrive;
     private DcMotor frontRightDrive;
     private DcMotor backRightDrive;
-    private DcMotor turret;
+    private TurretSubsystem turret;
     private GoBildaPinpointDriver pinpoint;
 
     private double currentFL;
@@ -33,7 +34,7 @@ public class BioBuzzTurretTeleOp extends LinearOpMode {
         backLeftDrive = hardwareMap.get(DcMotor.class, "b_l_dr");
         frontRightDrive = hardwareMap.get(DcMotor.class, "f_r_dr");
         backRightDrive = hardwareMap.get(DcMotor.class, "b_r_dr");
-        turret = hardwareMap.get(DcMotor.class, "turret");
+        turret = new TurretSubsystem(hardwareMap);
 
         frontLeftDrive.setDirection(DcMotor.Direction.REVERSE);
         backLeftDrive.setDirection(DcMotor.Direction.REVERSE);
@@ -45,7 +46,6 @@ public class BioBuzzTurretTeleOp extends LinearOpMode {
                 backLeftDrive,
                 frontRightDrive,
                 backRightDrive,
-                turret
         };
 
         for (DcMotor motor : motors) {
@@ -55,7 +55,7 @@ public class BioBuzzTurretTeleOp extends LinearOpMode {
         }
 
         pinpoint = hardwareMap.get(GoBildaPinpointDriver.class, "pinpoint");
-        pinpoint.setOffsets(7, 7, DistanceUnit.CM);
+        pinpoint.setOffsets(80, 25.4, DistanceUnit.MM);
         pinpoint.setEncoderResolution(
                 GoBildaPinpointDriver.GoBildaOdometryPods.goBILDA_4_BAR_POD
         );
@@ -70,6 +70,7 @@ public class BioBuzzTurretTeleOp extends LinearOpMode {
                 pinpoint.update();
                 telemetry.addLine("FIELD-RELATIVE DRIVE + TURRET TEST");
                 telemetry.addLine("Keep robot stationary during calibration");
+                telemetry.addLine("Center turret before INIT; encoder zero is set at INIT");
                 telemetry.addData("Pinpoint status", pinpoint.getDeviceStatus());
                 addPinpointTelemetry();
                 telemetry.update();
@@ -91,10 +92,11 @@ public class BioBuzzTurretTeleOp extends LinearOpMode {
                         ? 0.0 : operatorGamepad.left_stick_x;
                 double turretPower = Math.abs(turretInput) < DEADZONE
                         ? 0.0 : turretInput;
-                turret.setPower(turretPower);
+                double appliedTurretPower = turret.setPower(turretPower);
 
                 telemetry.addData("Turret input (gamepad 2 left X)", "%.2f", turretInput);
-                telemetry.addData("Turret commanded power", "%.2f", turret.getPower());
+                telemetry.addData("Turret angle (deg)", "%.1f", turret.getAngleDegrees());
+                telemetry.addData("Turret commanded power", "%.2f", appliedTurretPower);
 
                 pinpoint.update();
 
@@ -170,7 +172,7 @@ public class BioBuzzTurretTeleOp extends LinearOpMode {
             }
         } finally {
             stopDrive();
-            turret.setPower(0);
+            turret.stop();
         }
     }
 

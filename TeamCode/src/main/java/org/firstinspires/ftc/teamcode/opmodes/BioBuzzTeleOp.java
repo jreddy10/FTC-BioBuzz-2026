@@ -10,6 +10,8 @@ import com.qualcomm.robotcore.hardware.Servo;
 
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
+import org.firstinspires.ftc.teamcode.subsystems.IntakeSubsystem;
+import org.firstinspires.ftc.teamcode.subsystems.TurretSubsystem;
 
 @TeleOp(name = "Drive")
 public class BioBuzzTeleOp extends LinearOpMode {
@@ -23,7 +25,7 @@ public class BioBuzzTeleOp extends LinearOpMode {
 
     private DcMotor flywheel;
 
-    private DcMotor turret;
+    private TurretSubsystem turret;
 
     private DcMotor viper;
 
@@ -57,8 +59,7 @@ public class BioBuzzTeleOp extends LinearOpMode {
                 hardwareMap.get(DcMotor.class, "f_r_dr");
         backRightDrive =
                 hardwareMap.get(DcMotor.class, "b_r_dr");
-        turret =
-                hardwareMap.get(DcMotor.class, "turret");
+        turret = new TurretSubsystem(hardwareMap);
         intake_motor =
                 hardwareMap.get(DcMotor.class, "intake_motor");
         flywheel =
@@ -89,16 +90,13 @@ public class BioBuzzTeleOp extends LinearOpMode {
             motor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         }
 
-                turret.setPower(0);
-                turret.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-
         pinpoint = hardwareMap.get(
                 GoBildaPinpointDriver.class, "pinpoint"
         );
 
         // Retained from your original code.
         // Verify offsets and encoder directions for your mounting.
-        pinpoint.setOffsets(7, 7, DistanceUnit.CM);
+        pinpoint.setOffsets(80, 25.4, DistanceUnit.MM);
 
         pinpoint.setEncoderResolution(
                 GoBildaPinpointDriver.GoBildaOdometryPods
@@ -121,6 +119,7 @@ public class BioBuzzTeleOp extends LinearOpMode {
 
                 telemetry.addLine("FIELD-RELATIVE DRIVE");
                 telemetry.addLine("Keep robot stationary during calibration");
+                telemetry.addLine("Center turret before INIT; encoder zero is set at INIT");
                 telemetry.addData(
                         "Pinpoint status", pinpoint.getDeviceStatus()
                 );
@@ -220,7 +219,7 @@ public class BioBuzzTeleOp extends LinearOpMode {
                     continue;
                 }
                 if (gamepad2.a) {
-                    intake_motor.setPower(1.0);
+                    intake_motor.setPower(IntakeSubsystem.DEFAULT_POWER);
                 }
 
                 if (gamepad2.b) {
@@ -313,7 +312,7 @@ public class BioBuzzTeleOp extends LinearOpMode {
             }
         } finally {
             stopDrive();
-                        turret.setPower(0);
+                        turret.stop();
                         dual300Servo.setPosition(SERVO_CENTER_POSITION);
         }
     }

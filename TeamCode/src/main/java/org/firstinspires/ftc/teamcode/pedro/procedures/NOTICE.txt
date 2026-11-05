@@ -1,0 +1,6 @@
+MecanumTuner.java, PinpointTuner.java, ForesightTuner.java, and Tests.java
+are imported without modification from Pedro-Pathing/Quickstart:
+https://github.com/Pedro-Pathing/Quickstart/tree/4f33ef5bbbd99ebfe978f0b86046ca43469e2df2/TeamCode/src/main/java/org/firstinspires/ftc/teamcode/pedro/procedures
+
+The upstream repository's license is identical to this repository's root
+LICENSE (Copyright (c) 2014-2022 FIRST), which is retained in full.

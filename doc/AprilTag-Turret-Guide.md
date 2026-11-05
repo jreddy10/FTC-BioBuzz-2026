@@ -14,12 +14,84 @@ It **does not drive the chassis, control the flywheel, or feed/fire balls**. Onl
 
 **ALIGNED means horizontal tag alignment only. It does not mean the Hive cell is upward-facing or that the launcher is ready.** Field performance, shooting accuracy, and automatic Hive-state recognition have not been validated by this implementation.
 
+### Optional AprilTag + Launcher TeleOp
+
+Select **BioBuzz: AprilTag + Launcher** to use
+[`BioBuzzAprilTagLauncherTeleOp`](../TeamCode/src/main/java/org/firstinspires/ftc/teamcode/opmodes/BioBuzzAprilTagLauncherTeleOp.java).
+It reuses the turret-only mode's targeting, controls, limits, and telemetry, but
+also requires an encoder-equipped motor named `flywheel`, configured with
+the correct motor/encoder type. The original **BioBuzz: AprilTag Turret** remains
+turret-only and does not require that motor. Neither mode drives the chassis.
+
+- Hold gamepad 1 **left bumper** to acquire and aim at a tag.
+- Once **ALIGNED**, also hold **right bumper** to command **6000 RPM** using
+  encoder velocity control. Right bumper alone cannot spin the flywheel.
+- Release either bumper or hold **B** to command zero flywheel power. Loss of
+  alignment, missing/invalid/stale tags, or unavailable gamepad input also stops
+  the flywheel command. If both bumpers remain held, spinning resumes when
+  alignment returns and B is released.
+- Driver Station **STOP** and OpMode exit also command zero flywheel power.
+  The motor uses FLOAT, so the flywheel coasts rather than stopping instantly.
+- Telemetry shows launcher state, commanded RPM, and measured RPM. There is no
+  feeder control, automatic firing, RPM-ready interlock, or shot-readiness check.
+
+Horizontal alignment is only a flywheel-control interlock, **not permission to
+feed a ball**. Verify the upward-facing cell, opening offset, distance/elevation,
+motor direction, encoder configuration, and suitable RPM independently. Keep the
+feeder disabled and people clear for initial testing. With the robot secured,
+verify right bumper alone is blocked, both bumpers spin only when aligned, and
+release/B/tag loss stop the command before testing with balls.
+
+### Red autonomous: timed launch and park
+
+Select **BioBuzz: Red Launch + Park**, implemented in
+[`BioBuzzRedLaunchParkAuto`](../TeamCode/src/main/java/org/firstinspires/ftc/teamcode/opmodes/BioBuzzRedLaunchParkAuto.java).
+This is the requested **six-second launcher alternative**, not a four-shot
+sequencer. It does not use `launch_servo`, count balls, or gate
+individual balls. Preloaded balls in contact with the flywheel may leave during
+spin-up, before alignment or RPM stabilizes. A powered feeder or physical gate
+is required to guarantee otherwise; software cannot prevent this without one.
+
+1. Start stationary at the perimeter wall with the turret centered before INIT.
+   Verify fixed elevation and camera/tag-to-opening calibration for this start,
+   and physically confirm the upward-facing red cell uses tags **34-37**.
+2. After START, spin `flywheel` at **6000 RPM** while scanning/aiming.
+   Drive motors remain stopped. Require the same fresh tag within **+/-2 degrees**
+   and measured speed within **+/-200 RPM** continuously for **0.5 seconds**.
+3. Keep aiming and running the flywheel for **6 elapsed seconds** after readiness.
+   Run `intake_motor` forward at **1.0 power** during this window to push balls
+   toward the turret. The intake stays off during INIT and aiming/spin-up.
+   Encoder velocity control continues through speed dips, but this is not
+   per-ball recovery sequencing. Loss of alignment or a fresh target during this
+   window aborts the remaining launch window. Invalid RPM also aborts launching.
+   Failure to establish readiness within **8 seconds** skips the launch window.
+4. Stop intake/launcher/turret, then move **4 inches forward**, followed by **8 inches
+   right**, relative to the robot orientation at START. Pinpoint feedback holds
+   the starting heading. Each leg has a **4-second timeout**, a **0.35-inch**
+   position tolerance, a **2-degree** heading tolerance and a **0.25-second**
+   settling interval. Maximum wheel power is **0.25**. A failed first leg
+   prevents the strafe. Invalid/not-ready odometry aborts movement, not blind parking.
+5. On completion, timeout, STOP, or exception, command all motors used here to
+   zero and stop Limelight polling. The flywheel uses FLOAT and will coast.
+
+Required drive names are `f_l_dr`, `f_r_dr`, `b_l_dr`, `b_r_dr`; other hardware is
+`turret`, `flywheel`, `intake_motor`, `limelight`, and `pinpoint`. Verify
+the intake's forward direction pushes balls toward the turret. Intake power is
+also stopped on launch abort, timeout, Driver Station STOP, and exception.
+Pinpoint configuration
+matches Drive: 7 cm offsets, 4-bar pods, FORWARD encoder directions. **Verify
+these settings for the actual mounting:** X must increase forward, Y must
+increase left, and heading must increase counterclockwise. Verify drive motor
+direction and turret sign before testing with preloads. Test the parking route
+empty at low power first; these short distances do not establish that the robot
+fully reaches a legal parking area. Robot/field validation is required.
+
 ## 2. Hardware and configuration
 
 | Component | Configuration / requirement |
 |---|---|
 | Turret | goBILDA Gear-Driven Turret, 2.75:1 ratio, 105 mm ID |
-| Turret drive | DC motor configured as `turret`; exact motor model/RPM to be recorded |
+| Turret drive | goBILDA 5202 Yellow Jacket, 50.9:1 (117 RPM), configured as `turret` |
 | Camera | Limelight 3A configured as `limelight`, connected to the Control Hub by USB |
 | Camera mounting | Rigidly attached to and rotating with the turret; pointing in the turret's aiming azimuth |
 | Limelight pipeline | Pipeline **0**, configured for AprilTags |
@@ -27,9 +99,9 @@ It **does not drive the chassis, control the flywheel, or feed/fire balls**. Onl
 | Physical tag size | **3.25 inches** for accurate pose estimation; use the detector's documented size convention |
 | Controls | Gamepad assigned as **gamepad 1** |
 
-The code initializes the motor to zero power, `BRAKE`, and `RUN_WITHOUT_ENCODER`. Limelight polling is requested at 50 Hz; the main loop sleeps 20 ms between iterations. These settings do not guarantee a 50 Hz camera frame rate or control-loop rate.
+Before pressing INIT, physically center the turret and leave safe cable slack on both sides. The code resets the motor encoder at INIT, treats that location as 0°, and uses the encoder to limit all turret OpModes to approximately ±60°. The 5202 motor is specified at 1,425.1 encoder counts per motor output-shaft revolution; with the confirmed 2.75:1 reduction, this is about 10.89 counts per turret degree, or ±653 counts at ±60°. The automatic AprilTag scan reverses at ±50° (about ±544 counts), leaving a margin before the outer software limit.
 
-The 2.75:1 turret ratio needs no encoder conversion for the current controller: it regulates motor power from camera error, not from a commanded encoder angle. Motor speed, friction, inertia, and backlash still affect tuning.
+The motor runs in `RUN_WITHOUT_ENCODER`; its encoder is read for position limits, not used for closed-loop motion control. Limelight polling is requested at 50 Hz; the main loop sleeps 20 ms between iterations. These settings do not guarantee a 50 Hz camera frame rate or control-loop rate. Software limits are not physical stops: they cannot protect against encoder failure, a slipping gear, a wrong gear ratio, or an incorrectly centered startup position. Verify the count-to-angle behavior at low power with the turret clear before relying on the limits.
 
 ## 3. Hive cells and tag IDs
 
@@ -48,12 +120,12 @@ The operator must identify which cell is physically upward-facing. The software 
 
 | Gamepad 1 input | Behavior |
 |---|---|
-| Left stick left/right, bumper released | Manual turret rotation, capped at 20% power |
+| Left stick left/right, bumper released | Manual turret rotation, capped at 20% power and limited to approximately ±60° |
 | D-pad left, bumper released | Select opposite-audience red cell: 30–33 |
 | D-pad right, bumper released | Select audience-side red cell: 34–37 |
 | D-pad down, bumper released | Allow both red cells: 30–37; this is the startup default |
-| Hold left bumper | Automatically aim at an eligible visible tag |
-| Release left bumper | Return to manual control; center the stick to stop |
+| Hold left bumper | Sweep back and forth within approximately ±50° at 10% power; aim at a fresh eligible tag when detected |
+| Release left bumper | Stop scanning and return to manual control; center the stick to stop |
 | Hold B | Override manual and automatic commands with zero motor power |
 | Release B | Normal control resumes; this is not a latched emergency stop |
 | Driver Station STOP | End the OpMode, stop the motor, and stop Limelight polling |
@@ -69,8 +141,8 @@ With both groups enabled, the first eligible detection is used—not necessarily
 3. Read gamepad input during each active loop, never in a field initializer.
 4. Accept Limelight results only when they are valid, from pipeline 0, and have a finite nonnegative staleness value no greater than 250 ms.
 5. Show pose telemetry for all fresh visible red tags. Filter potential aiming targets by selected cell, optional specific ID, and current tag lock.
-6. Lock the first eligible tag for the duration of a bumper hold. If it disappears, stop automatic motion rather than switching to another tag. The same tag can be reacquired during that hold.
-7. Calculate and apply manual power, automatic power, or zero power for the stop override.
+6. Lock the first eligible tag while it is visible. If it disappears or becomes stale, resume the bounded scan; a newly detected eligible tag can then be acquired.
+7. Calculate manual, scan, or aiming power; apply the encoder-based soft limit to every turret command.
 8. Update telemetry. On exit, command zero power and stop Limelight polling.
 
 ### Automatic aiming
@@ -89,15 +161,18 @@ For example, an error of +10° requests +0.10 power with the default sign. An er
 
 This is proportional visual feedback, not a full PID controller or encoder-based position hold. Near the target, commanded power can become too small to overcome friction.
 
+While the left bumper is held without a fresh eligible tag, the turret sweeps at 10% power and reverses at approximately ±50°. When a tag is found, the sweep stops and proportional visual aiming takes over. If the tag is lost, the scan resumes. Hold B to stop all turret motion. All turret OpModes also enforce the approximately ±60° encoder soft limit.
+
 ## 6. Telemetry and interpretation
 
 | Telemetry | Meaning |
 |---|---|
-| Mode | `MANUAL TURRET`, `AUTO AIM`, `ALIGNED`, `STOPPED`, or no-fresh-target stopping |
+| Mode | `MANUAL TURRET`, `SCANNING LEFT/RIGHT`, `AUTO AIM`, `ALIGNED`, `SOFT LIMIT`, or `STOPPED` |
 | Selected CELL | Eligible red tag group |
 | Tag ID | Tag currently chosen for aiming |
 | Horizontal aim error | Selected tag's `tx`, in degrees |
 | Turret power | Commanded motor power, not measured motor movement |
+| Turret angle / encoder | Estimated angle from the startup zero and current encoder count |
 | Result age | Limelight result staleness in milliseconds |
 | Per-tag tx / ty | Horizontal and vertical viewing angles |
 | Per-tag camera XYZ | Tag position relative to the camera, displayed in inches |
@@ -144,7 +219,7 @@ Future field-relative calculations require a verified camera-to-field transforma
 3. Confirm the Driver Station is connected to the intended Robot Controller. If it is not, use the app's menu → **Settings → Pair with Robot Controller** and select your team's controller; menu wording may vary by app version. Resolve connection/errors before testing.
 4. Plug the gamepad into the Driver Hub. Assign it as **gamepad 1** using the supported controller's assignment combination (normally **Start + A**) and confirm the app shows gamepad 1 assigned. Perform assignment before the test.
 5. Open the **TeleOp** selection list and choose **BioBuzz: AprilTag Turret**, not **Drive** or **Drive + Turret Test**.
-6. Center the left stick, release the bumper and B, then tap **INIT**. Check the setup instructions in the telemetry area and resolve any hardware-name exception. The required names are `turret` and `limelight`.
+6. Physically center the turret and leave cable slack on both sides. Center the left stick, release the bumper and B, then tap **INIT**. Check the setup instructions in the telemetry area and resolve any hardware-name exception. The required names are `turret` and `limelight`.
 7. Confirm everyone is clear, then tap **START / ▶**. With no stick or bumper input, commanded turret power should be zero.
 
 **Before START, this OpMode displays instructions only. It does not continuously update tag pose during INIT. Start it with neutral controls to read live tag telemetry without commanding rotation.**
@@ -177,7 +252,7 @@ Fresh visible red tags produce per-tag lines even when their group is excluded f
 4. **Briefly hold the left bumper** while the observer watches the mechanism. The error magnitude should decrease. If it increases, release the bumper with the stick centered and press Driver Station **STOP / ■** before troubleshooting.
 5. After direction is confirmed, hold the bumper to complete alignment. Expect **ALIGNED** and zero command within the configured ±2° tolerance. Record settling time with an external stopwatch if desired; the current code does not report settling time.
 6. Release the bumper and keep the stick centered. For an override test, hold **B** and confirm `STOPPED` and zero command. Release the bumper and center the stick before releasing B; otherwise movement can resume.
-7. Check target loss separately: during a brief bumper hold, safely remove the tag from view without putting hands near the mechanism. Expect `NO FRESH TARGET - STOPPED` and zero command once usable data is lost. Do not test by unplugging powered hardware.
+7. Check target loss separately: during a brief bumper hold, make the tag unavailable from outside the robot's motion area. Expect the bounded scan to resume. Do not put hands near the mechanism or unplug powered hardware.
 8. Tap **STOP / ■** to finish the run. Record actual observations, not just expected behavior.
 
 **Example reading:** `Tag ID: 30`, `Horizontal aim error: +10.0 deg`, and `Turret power: +0.10` is consistent with auto aiming at the baseline gain/sign. After centering, an error of `+1.0 deg` should show `ALIGNED` with `0.00` power. These are illustrative values, not measurements from your robot.
@@ -202,21 +277,21 @@ Fresh visible red tags produce per-tag lines even when their group is excluded f
 ### Preparation
 
 - Secure the robot and isolate the launcher/feeder. Keep people clear of the turret gears and moving mechanism.
-- Confirm `turret`, `limelight`, pipeline 0, family 36h11, and tag-size configuration.
+- Center the turret and verify safe cable slack in both directions. Confirm `turret`, `limelight`, pipeline 0, family 36h11, and tag-size configuration.
 - Build/install the updated Robot Controller app. Select **BioBuzz: AprilTag Turret**.
 - Confirm camera detection before motion. Use authorized practice-field handling procedures.
 
 ### Direction and aiming
 
-1. Press INIT, then START with the stick centered and bumper released.
-2. Briefly nudge the left stick right. Verify the turret turns right along its aiming azimuth.
-3. If reversed, STOP, change `TURRET_DIRECTION_SIGN` to `-1.0`, rebuild/install, and retest.
+1. With the turret physically centered, press INIT and confirm the encoder angle is near 0°. Then press START with the stick centered and bumper released.
+2. Briefly nudge the left stick right at low power. Confirm the encoder value changes and that the turret moves freely; verify the direction sign for camera aiming.
+3. If visual aiming is reversed, STOP, change `TURRET_DIRECTION_SIGN` to `-1.0`, rebuild/install, and retest.
 4. Select one red cell with the D-pad. Position its tag slightly off-center in view.
-5. Briefly hold the bumper. The magnitude of horizontal error should decrease. Stop immediately if it grows.
-6. Continue holding only after direction is confirmed. Verify **ALIGNED** and zero power within ±2°.
+5. Hold the bumper briefly. The turret should scan only within the marked safe arc; when the selected tag appears, the magnitude of horizontal error should decrease. Stop immediately if motion is unexpected or cables become taut.
+6. Continue holding only after the direction and arc are verified. Verify **ALIGNED** and zero power within ±2°.
 7. Hold B to verify the override. Center the stick and release the bumper before releasing B.
-8. Remove/occlude the locked tag. Assisted power should become zero with invalid/missing data or excessive staleness; the turret must not search blindly.
-9. Present only a blue tag or a red tag from the excluded cell. Assisted power should remain zero.
+8. From outside the robot's motion area, make the tag unavailable. The scan should resume but remain within its configured arc. Do not put hands near the mechanism.
+9. Present only a blue tag or a red tag from the excluded cell. The turret should continue bounded scanning without aiming at it.
 
 ### Hive-state data collection — no launching
 
@@ -271,15 +346,15 @@ Leave results blank until measured. Record screenshots or logs where possible.
 | Auto correction | Absolute horizontal error decreases | | |
 | Alignment | Zero command within configured tolerance | | |
 | B override | Zero motor command while B is held | | |
-| Lost/stale target | Zero assisted command; no blind search | | |
+| Lost/stale target | Bounded scan resumes within +/-50 deg | | |
 | Wrong alliance / excluded cell | Not selected for aiming | | |
-| Hold lock | No automatic switch to a different tag during the same hold | | |
+| Hold lock | Keeps the selected tag while visible; reacquires an eligible tag after loss | | |
 | Both Hive positions | Pose recorded and physical upward-facing cell identified | | |
 | OpMode exit | Turret power zero and Limelight polling stopped | | |
 
 ## 11. Limitations and next development steps
 
-- No automatic travel limits, homing, or cable-twist protection are implemented. BRAKE does not guarantee precise holding.
+- Encoder-based soft travel limits are implemented, but there are no physical stops, limit switches, automatic homing, or cable-twist protection. Limits depend on the operator centering the turret before INIT and the encoder/gearing assumptions being correct. BRAKE does not guarantee precise holding.
 - A missing gamepad object defaults to stopped control, but the code has no dedicated controller-disconnection watchdog.
 - The staleness threshold does not guarantee end-to-end capture-to-motor latency; camera processing and communication delay also affect tracking.
 - No automatic upward-facing-cell classifier or motion/settling detector is implemented.
@@ -328,7 +403,7 @@ flowchart LR
 - The Limelight link shown is its USB connection to the Control Hub; verify its cable and power requirements against the manufacturer's instructions. Do not interpret the diagram as permission to connect battery voltage to USB or sensor pins.
 - Connect the gamepad to the Driver Hub, not the Control Hub. The Driver Hub does not directly power or command the turret motor.
 - Dotted arrows represent mechanical mounting or optical feedback, not electrical wires. Provide cable strain relief and sufficient slack throughout the permitted turret travel.
-- This test does not use an encoder cable or limit-switch input. Additional safety sensors would require documented wiring and software integration.
+- The motor's integrated encoder must be connected and reporting valid counts through the motor port. No limit switches or physical stops are used; the software limit depends on the centered startup reference and the stated motor/turret gearing.
 - Power off the robot before changing wiring. Use approved fusing, connectors, wire sizing, and power distribution; never connect the motor directly to the battery for this control setup.
 
 | Connection to verify | Team-installed value |
@@ -345,7 +420,7 @@ flowchart LR
 
 ```mermaid
 flowchart TD
-	INIT["Initialize turret: zero power, BRAKE,<br/>RUN_WITHOUT_ENCODER"] --> LLINIT["Initialize Limelight<br/>Pipeline 0, request 50 Hz polling, start"]
+	INIT["Physically center before INIT;<br/>reset encoder to zero, BRAKE,<br/>RUN_WITHOUT_ENCODER"] --> LLINIT["Initialize Limelight<br/>Pipeline 0, request 50 Hz polling, start"]
 	LLINIT --> WAIT["Display instructions<br/>Wait for Driver Station START"]
 	WAIT --> ACTIVE{"OpMode active?"}
 	ACTIVE -->|"No / exit"| CLEAN["Command turret power 0<br/>Stop Limelight polling"]
@@ -361,22 +436,23 @@ flowchart TD
 	STOP -->|"Yes"| ZERO["Power 0<br/>Mode STOPPED"]
 	STOP -->|"No"| ASSIST{"Left bumper held?"}
 	ASSIST -->|"No"| MANUAL["Manual: direction sign ×<br/>deadbanded left stick X × 0.20"]
-	ASSIST -->|"Yes"| FOUND{"Eligible locked target visible?"}
-	FOUND -->|"No"| LOST["Power 0<br/>NO FRESH TARGET - STOPPED"]
+	ASSIST -->|"Yes"| FOUND{"Fresh eligible tag visible?"}
+	FOUND -->|"No"| LOST["Scan at 0.10 power;<br/>reverse at +/-50 deg"]
 	FOUND -->|"Yes"| TOL{"Absolute tx at most 2 degrees?"}
 	TOL -->|"Yes"| ALIGN["Power 0<br/>Mode ALIGNED"]
 	TOL -->|"No"| AUTO["Power = direction sign ×<br/>clip(tx × 0.01, -0.20, 0.20)<br/>Mode AUTO AIM"]
-	ZERO --> APPLY["Apply turret motor power"]
-	MANUAL --> APPLY
-	LOST --> APPLY
-	ALIGN --> APPLY
-	AUTO --> APPLY
+	ZERO --> LIMIT["Apply +/-60 deg encoder soft limit"]
+	MANUAL --> LIMIT
+	LOST --> LIMIT
+	AUTO --> LIMIT
+	ALIGN --> LIMIT
+	LIMIT --> APPLY["Apply turret motor power"]
 	APPLY --> TELE["Update telemetry<br/>Hive state UNKNOWN; launch readiness not implemented"]
 	TELE --> DELAY["Sleep 20 ms"]
 	DELAY --> ACTIVE
 ```
 
-The diagram shows normal runtime decisions and exit cleanup. Hardware initialization errors can prevent START; they must be resolved before testing. B overrides motor output but does not stop vision telemetry. Losing a locked tag does not switch to another ID; reacquiring the same tag during the hold can resume aiming.
+The diagram shows normal runtime decisions and exit cleanup. Hardware initialization errors can prevent START; they must be resolved before testing. B overrides motor output but does not stop vision telemetry. Losing a tag resumes scanning; another eligible tag can be acquired during the same bumper hold.
 
 ### C. Operator-to-motor sequence diagram
 
@@ -389,9 +465,9 @@ sequenceDiagram
 	participant HUB as Configured motor hub
 	participant T as Turret and mounted camera
 
-	Operator->>DS: Select BioBuzz: AprilTag Turret; INIT
+	Operator->>DS: Center turret, then select BioBuzz: AprilTag Turret; INIT
 	DS->>OP: Initialize OpMode
-	OP->>HUB: Power 0; BRAKE; RUN_WITHOUT_ENCODER
+	OP->>HUB: Power 0; BRAKE; reset encoder; RUN_WITHOUT_ENCODER
 	OP->>LL: pipelineSwitch(0); setPollRateHz(50); start()
 	OP-->>DS: Setup instructions
 	Note over LL,OP: Limelight polling runs independently.<br/>getLatestResult reads the latest cached result.
@@ -408,20 +484,23 @@ sequenceDiagram
 		LL-->>OP: Latest result, validity, age, tag data
 		OP->>OP: Check freshness and IDs; collect pose telemetry
 		opt Aim bumper held and eligible tag exists
-			OP->>OP: Lock one tag for this hold
+			OP->>OP: Lock selected tag while visible
 		end
 		alt B held or gamepad object missing
-			OP->>HUB: setPower(0)
+			OP->>OP: Select zero power
 		else Bumper released
-			OP->>HUB: setPower(manual stick command)
+			OP->>OP: Calculate manual stick command
 		else Bumper held but no fresh eligible target
-			OP->>HUB: setPower(0)
+			OP->>OP: Sweep and reverse at +/-50 degrees
+			OP->>OP: Select scan command
 		else Bumper held and absolute tx within 2 degrees
-			OP->>HUB: setPower(0); mode ALIGNED
+			OP->>OP: Select zero power; mode ALIGNED
 		else Bumper held and target outside tolerance
 			OP->>OP: Compute signed proportional power, capped at 20 percent
-			OP->>HUB: setPower(aim command)
+			OP->>OP: Select aim command
 		end
+		OP->>OP: Apply +/-60 degree encoder soft limit
+		OP->>HUB: setPower(limited command)
 		HUB->>T: Apply motor output
 		Note over T,LL: If the mechanism moves, the camera moves with it;<br/>the next camera frame provides new visual error.
 		OP-->>DS: Mode, target, tx, pose, result age, power
