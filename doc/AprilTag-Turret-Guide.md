@@ -19,7 +19,7 @@ It **does not drive the chassis, control the flywheel, or feed/fire balls**. Onl
 Select **BioBuzz: AprilTag + Launcher** to use
 [`BioBuzzAprilTagLauncherTeleOp`](../TeamCode/src/main/java/org/firstinspires/ftc/teamcode/opmodes/BioBuzzAprilTagLauncherTeleOp.java).
 It reuses the turret-only mode's targeting, controls, limits, and telemetry, but
-also requires an encoder-equipped motor named `launcher_motor`, configured with
+also requires an encoder-equipped motor named `flywheel`, configured with
 the correct motor/encoder type. The original **BioBuzz: AprilTag Turret** remains
 turret-only and does not require that motor. Neither mode drives the chassis.
 
@@ -41,6 +41,50 @@ motor direction, encoder configuration, and suitable RPM independently. Keep the
 feeder disabled and people clear for initial testing. With the robot secured,
 verify right bumper alone is blocked, both bumpers spin only when aligned, and
 release/B/tag loss stop the command before testing with balls.
+
+### Red autonomous: timed launch and park
+
+Select **BioBuzz: Red Launch + Park**, implemented in
+[`BioBuzzRedLaunchParkAuto`](../TeamCode/src/main/java/org/firstinspires/ftc/teamcode/opmodes/BioBuzzRedLaunchParkAuto.java).
+This is the requested **six-second launcher alternative**, not a four-shot
+sequencer. It does not use `launch_servo`, count balls, or gate
+individual balls. Preloaded balls in contact with the flywheel may leave during
+spin-up, before alignment or RPM stabilizes. A powered feeder or physical gate
+is required to guarantee otherwise; software cannot prevent this without one.
+
+1. Start stationary at the perimeter wall with the turret centered before INIT.
+   Verify fixed elevation and camera/tag-to-opening calibration for this start,
+   and physically confirm the upward-facing red cell uses tags **34-37**.
+2. After START, spin `flywheel` at **6000 RPM** while scanning/aiming.
+   Drive motors remain stopped. Require the same fresh tag within **+/-2 degrees**
+   and measured speed within **+/-200 RPM** continuously for **0.5 seconds**.
+3. Keep aiming and running the flywheel for **6 elapsed seconds** after readiness.
+   Run `intake_motor` forward at **1.0 power** during this window to push balls
+   toward the turret. The intake stays off during INIT and aiming/spin-up.
+   Encoder velocity control continues through speed dips, but this is not
+   per-ball recovery sequencing. Loss of alignment or a fresh target during this
+   window aborts the remaining launch window. Invalid RPM also aborts launching.
+   Failure to establish readiness within **8 seconds** skips the launch window.
+4. Stop intake/launcher/turret, then move **4 inches forward**, followed by **8 inches
+   right**, relative to the robot orientation at START. Pinpoint feedback holds
+   the starting heading. Each leg has a **4-second timeout**, a **0.35-inch**
+   position tolerance, a **2-degree** heading tolerance and a **0.25-second**
+   settling interval. Maximum wheel power is **0.25**. A failed first leg
+   prevents the strafe. Invalid/not-ready odometry aborts movement, not blind parking.
+5. On completion, timeout, STOP, or exception, command all motors used here to
+   zero and stop Limelight polling. The flywheel uses FLOAT and will coast.
+
+Required drive names are `f_l_dr`, `f_r_dr`, `b_l_dr`, `b_r_dr`; other hardware is
+`turret`, `flywheel`, `intake_motor`, `limelight`, and `pinpoint`. Verify
+the intake's forward direction pushes balls toward the turret. Intake power is
+also stopped on launch abort, timeout, Driver Station STOP, and exception.
+Pinpoint configuration
+matches Drive: 7 cm offsets, 4-bar pods, FORWARD encoder directions. **Verify
+these settings for the actual mounting:** X must increase forward, Y must
+increase left, and heading must increase counterclockwise. Verify drive motor
+direction and turret sign before testing with preloads. Test the parking route
+empty at low power first; these short distances do not establish that the robot
+fully reaches a legal parking area. Robot/field validation is required.
 
 ## 2. Hardware and configuration
 

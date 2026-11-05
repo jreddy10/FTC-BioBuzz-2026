@@ -57,6 +57,86 @@ Samples Folder: &nbsp;&nbsp; [/FtcRobotController/src/main/java/org/firstinspire
 
 The readme.md file located in the [/TeamCode/src/main/java/org/firstinspires/ftc/teamcode](TeamCode/src/main/java/org/firstinspires/ftc/teamcode) folder contains an explanation of the sample naming convention, and instructions on how to copy them to your own project space.
 
+## BioBuzz Pedro Pathing setup
+
+Pedro Pathing 3.0.2 and AutoTune 1.0.3 are installed in TeamCode. This is a
+separate autonomous/tuning setup: the existing Drive controls and Red
+launch-and-park autonomous are unchanged.
+
+The robot configuration is in
+[pedro/Constants.java](TeamCode/src/main/java/org/firstinspires/ftc/teamcode/pedro/Constants.java).
+It uses the same motor names and directions as Drive:
+
+| Wheel | Hardware name | Direction |
+|---|---|---|
+| Front left | `f_l_dr` | REVERSE |
+| Back left | `b_l_dr` | REVERSE |
+| Front right | `f_r_dr` | FORWARD |
+| Back right | `b_r_dr` | FORWARD |
+
+The localizer uses `pinpoint`, goBILDA 4-Bar pods, an X pod offset of
+**+80 mm**, and a Y pod offset of **+25.4 mm**. Both encoder directions start
+as FORWARD, matching Drive; verify them with the tests below. Offsets are
+explicitly in millimeters, while Pedro path coordinates and distances are
+in **inches**, with headings in **radians**. Forward increases X, left
+increases Y, and counterclockwise rotation increases heading.
+
+### First-time tuning
+
+1. Build and deploy the Robot Controller app. Connect a computer to the
+   robot's Wi-Fi and open <http://192.168.43.1:10158>. If the controller uses
+   a different IP, use that IP with port 10158. The procedures are
+   registered in
+   [pedro/Tuning.java](TeamCode/src/main/java/org/firstinspires/ftc/teamcode/pedro/Tuning.java);
+   they are selected in the webpage, not as a permanent "Pedro Tuning"
+   entry in the Driver Station. Follow the webpage's INIT/START/STOP prompts.
+2. Select **BioBuzz Mecanum** with the robot securely lifted so the wheels
+   cannot touch anything. It spins each motor individually at 0.5 power.
+   Enter the four hardware names above and verify the wheel directions.
+   Save the generated Java `drivetrainConfig` in `Constants.java`.
+3. Lower the robot onto the floor. Select **BioBuzz Pinpoint**, enter
+   `pinpoint`, and select **FOUR_BAR**. Follow the manual forward, left,
+   and counterclockwise rotation prompts. Keep the robot still whenever
+   the Pinpoint is calibrating. Save the generated Java `localizerConfig`
+   and redeploy. The generated offsets use **inches**: replace the complete
+   block, including its `offsetUnits`, rather than mixing them with the
+   original millimeter values.
+4. Select **BioBuzz Tests**, then **Pose Test** for a passive localization
+   check. Push the robot forward and verify X increases; push left and
+   verify Y increases; turn counterclockwise and verify heading increases.
+   Check a measured travel distance and confirm turning in place causes
+   little X/Y movement. **Localization Test** additionally enables gamepad
+   driving. **Odometry Test** moves the robot automatically.
+5. In a clear field area, select **BioBuzz Foresight** and complete all its
+   steps. These tests drive and rotate automatically, sometimes at full
+   power, and can coast beyond the entered distance. Allow room in every
+   direction and keep the Driver Station STOP available.
+6. Save the generated `foresightConfig` in `Constants.java`. Add the imports
+   used by the generated code: `com.pedropathing.controllers.Controller`,
+   `com.pedropathing.math.Matrix`, and `com.pedropathing.math.Vector2D`.
+   Only after saving the measured values, set `PATHING_TUNED = true`,
+   rebuild, and redeploy. No estimated gains or velocities are supplied.
+7. Start with **BioBuzz Tests -> Line Test**, explicitly setting its
+   distance to **12 inches**, then progress to the curve/interpolation
+   tests. The official Line Test repeats forward and backward until STOP;
+   its default is 48 inches, not 12. Hold and path tests are blocked until
+   `PATHING_TUNED` is enabled. Pose/localization/driving checks and the
+   Foresight tuning procedure work before it is enabled.
+
+The official procedure implementations and their pinned upstream revision
+are identified in
+[procedures/NOTICE.txt](TeamCode/src/main/java/org/firstinspires/ftc/teamcode/pedro/procedures/NOTICE.txt).
+After tuning, autonomous code can create the configured follower with
+`Constants.create(hardwareMap)`. No competition route is included yet.
+See the [official Pedro tuning guide](https://pedropathing.com/docs/pathing/tuning)
+for the individual steps.
+
+Build validation:
+
+```powershell
+.\gradlew.bat ':TeamCode:assembleDebug'
+```
+
 # Release Information
 
 ## Version 12.0 (20260907-090034)

@@ -10,6 +10,7 @@ import com.qualcomm.robotcore.hardware.Servo;
 
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
+import org.firstinspires.ftc.teamcode.subsystems.IntakeSubsystem;
 import org.firstinspires.ftc.teamcode.subsystems.TurretSubsystem;
 
 @TeleOp(name = "Drive")
@@ -95,7 +96,7 @@ public class BioBuzzTeleOp extends LinearOpMode {
 
         // Retained from your original code.
         // Verify offsets and encoder directions for your mounting.
-        pinpoint.setOffsets(7, 7, DistanceUnit.CM);
+        pinpoint.setOffsets(80, 25.4, DistanceUnit.MM);
 
         pinpoint.setEncoderResolution(
                 GoBildaPinpointDriver.GoBildaOdometryPods
@@ -218,7 +219,7 @@ public class BioBuzzTeleOp extends LinearOpMode {
                     continue;
                 }
                 if (gamepad2.a) {
-                    intake_motor.setPower(1.0);
+                    intake_motor.setPower(IntakeSubsystem.DEFAULT_POWER);
                 }
 
                 if (gamepad2.b) {

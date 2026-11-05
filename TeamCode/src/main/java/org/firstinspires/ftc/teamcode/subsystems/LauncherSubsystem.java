@@ -14,7 +14,7 @@ public class LauncherSubsystem {
 
     public LauncherSubsystem(HardwareMap hardwareMap) {
         // Configure this motor as a DcMotorEx with its correct encoder type in the RC.
-        launcherMotor = hardwareMap.get(DcMotorEx.class, "launcher_motor");
+        launcherMotor = hardwareMap.get(DcMotorEx.class, "flywheel");
         launcherMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         launcherMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
     }

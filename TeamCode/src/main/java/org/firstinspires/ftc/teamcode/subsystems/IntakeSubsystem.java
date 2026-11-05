@@ -5,6 +5,8 @@ import com.qualcomm.robotcore.hardware.HardwareMap;
 
 /** Hardware and power control for the intake motor. */
 public class IntakeSubsystem {
+    public static final double DEFAULT_POWER = 1.0;
+
     private final DcMotor intakeMotor;
 
     public IntakeSubsystem(HardwareMap hardwareMap) {

@@ -13,7 +13,7 @@ public class LauncherTestTeleOp extends LinearOpMode {
     public void runOpMode() throws InterruptedException {
         LauncherSubsystem launcher = new LauncherSubsystem(hardwareMap);
 
-        telemetry.addData("Status", "Initialized - verify launcher_motor and encoder setup");
+        telemetry.addData("Status", "Initialized - verify flywheel and encoder setup");
         telemetry.addData("Target", "%.0f RPM", TARGET_RPM);
         telemetry.addData("Controls", "A: toggle flywheel | B: stop");
         telemetry.addData("Safety", "Keep hands and objects clear of the flywheel");

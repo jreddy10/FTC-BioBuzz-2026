@@ -21,8 +21,8 @@ public class IntakeTestTeleOp extends LinearOpMode {
 
             while (opModeIsActive()) {
                 // Holding both bumpers cancels the forward and reverse commands.
-                double intakePower = (gamepad1.right_bumper ? 1.0 : 0.0)
-                    - (gamepad1.left_bumper ? 1.0 : 0.0);
+                double intakePower = (gamepad1.right_bumper ? IntakeSubsystem.DEFAULT_POWER : 0.0)
+                    - (gamepad1.left_bumper ? IntakeSubsystem.DEFAULT_POWER : 0.0);
                 intake.setPower(intakePower);
 
                 telemetry.addData("Intake power", "%.2f", intake.getPower());

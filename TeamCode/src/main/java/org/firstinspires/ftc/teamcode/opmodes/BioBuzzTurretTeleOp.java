@@ -55,7 +55,7 @@ public class BioBuzzTurretTeleOp extends LinearOpMode {
         }
 
         pinpoint = hardwareMap.get(GoBildaPinpointDriver.class, "pinpoint");
-        pinpoint.setOffsets(7, 7, DistanceUnit.CM);
+        pinpoint.setOffsets(80, 25.4, DistanceUnit.MM);
         pinpoint.setEncoderResolution(
                 GoBildaPinpointDriver.GoBildaOdometryPods.goBILDA_4_BAR_POD
         );
